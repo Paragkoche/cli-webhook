@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import { razorpayWebhookHandler } from "./webhook";
 
@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON bodies with raw body capture for signature verification
 app.use(
   express.json({
-    verify: (req: any, res, buf) => {
+    verify: (req: Request, res: Response, buf: Buffer) => {
       req.rawBody = buf;
     },
   }),
