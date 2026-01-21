@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Razorpay Payment Test</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #f5f5f5;
+        margin: 0;
+      }
+      .container {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 1.5rem;
+      }
+      .form-group {
+        margin-bottom: 1rem;
+      }
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #666;
+      }
+      input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+        box-sizing: border-box; /* Ensure padding doesn't affect width */
+      }
+      button {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: #3399cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      button:hover {
+        background-color: #2b82ad;
+      }
+      #status {
+        margin-top: 1rem;
+        text-align: center;
+        font-size: 0.9rem;
+      }
+      .error {
+        color: #dc2626;
+      }
+      .success {
+        color: #16a34a;
+      }
+    </style>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Razorpay Test</h1>
+      <div class="form-group">
+        <label for="amount">Amount (INR)</label>
+        <input type="number" id="amount" value="500" min="1" />
+      </div>
+      <button id="pay-btn" onclick="handlePayment()">Pay Now</button>
+      <div id="status"></div>
+    </div>
+
+    <script>
+      async function handlePayment() {
+        const statusDiv = document.getElementById("status");
+        const btn = document.getElementById("pay-btn");
+        const amountInput = document.getElementById("amount");
+
+        statusDiv.textContent = "Initializing...";
+        statusDiv.className = "";
+        btn.disabled = true;
+
+        try {
+          // 1. Get Config (Key ID)
+          const configRes = await fetch("/config");
+          const config = await configRes.json();
+
+          if (!config.razorpayKeyId) {
+            throw new Error(
+              "Razorpay Key ID not found on server. Please set RAZORPAY_KEY_ID in .env",
+            );
+          }
+
+          // 2. Create Order
+          const amount = amountInput.value * 100; // Convert to paise
+          const orderRes = await fetch("/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: amount,
+              currency: "INR",
+              userId: "test_user_123",
+            }),
+          });
+
+          const orderData = await orderRes.json();
+
+          if (orderData.error) {
+            throw new Error(orderData.error);
+          }
+
+          // MOCK MODE CHECK
+          if (config.razorpayKeyId === "rzp_test_mock") {
+            console.log("Running in Mock Mode");
+            setTimeout(() => {
+              const mockResponse = {
+                razorpay_payment_id: "pay_mock_" + Date.now(),
+                razorpay_order_id: orderData.orderId,
+                razorpay_signature: "mock_signature",
+              };
+              statusDiv.textContent =
+                "Payment Successful! (Mock Mode) ID: " +
+                mockResponse.razorpay_payment_id;
+              statusDiv.className = "success";
+              btn.disabled = false;
+
+              // Optional: Call verify to show full flow (backend verify might fail if it checks signature rigidly)
+              // But for now, just showing success is enough for the UI test.
+            }, 1000);
+            return;
+          }
+
+          // 3. Open Razorpay Checkout
+          const options = {
+            key: config.razorpayKeyId,
+            amount: orderData.amount,
+            currency: orderData.currency,
+            name: "Test Merchant",
+            description: "Test Transaction",
+            image: "https://example.com/your_logo",
+            order_id: orderData.orderId,
+            handler: function (response) {
+              statusDiv.textContent =
+                "Payment Successful! Payment ID: " +
+                response.razorpay_payment_id;
+              statusDiv.className = "success";
+
+              // Optionally verify payment on backend
+              // fetch('/verify', { ... })
+            },
+            prefill: {
+              name: "Test User",
+              email: "test.user@example.com",
+              contact: "9999999999",
+            },
+            notes: {
+              address: "Razorpay Corporate Office",
+            },
+            theme: {
+              color: "#3399cc",
+            },
+            modal: {
+              ondismiss: function () {
+                statusDiv.textContent = "Payment Cancelled";
+                statusDiv.className = "error";
+                btn.disabled = false;
+              },
+            },
+          };
+
+          const rzp1 = new Razorpay(options);
+          rzp1.on("payment.failed", function (response) {
+            statusDiv.textContent =
+              "Payment Failed: " + response.error.description;
+            statusDiv.className = "error";
+            btn.disabled = false;
+          });
+
+          rzp1.open();
+        } catch (error) {
+          console.error(error);
+          statusDiv.textContent = error.message;
+          statusDiv.className = "error";
+          btn.disabled = false;
+        }
+      }
+    </script>
+  </body>
+</html>

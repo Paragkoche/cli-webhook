@@ -2,9 +2,6 @@
   "name": "webhook",
   "version": "0.1.0",
   "main": "src/index.ts",
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -15,12 +12,13 @@
     "@supabase/supabase-js": "^2.90.1",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.9",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "serverless-http": "^4.0.0"
+    "razorpay": "^2.9.6"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.160",
+    "@types/cors": "^2.8.19",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
